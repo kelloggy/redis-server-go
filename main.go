@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"net"
+	"redis-server-go/handler"
 	"redis-server-go/resp"
+
+	"strings"
 )
 
 func main() {
@@ -33,9 +36,29 @@ func main() {
 			return
 		}
 
-		fmt.Println(value)
+		if value.Typ != "array" || len(value.Array) == 0 {
+			fmt.Println("Invalid request")
+			continue
+		}
 
-		conn.Write([]byte("+OK\r\n"))
+		// take the first argu which should be either set, get, hset, hget
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
+
+		writer := resp.NewWriter(conn)
+
+		// check the command
+		handler, ok := handler.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			writer.Write((resp.Value{Typ: "string", Str: ""}))
+			continue
+		}
+
+		// check the rest of the args
+		result := handler(args)
+		fmt.Println("result: \n", result)
+		writer.Write(result)
+
 	}
-
 }
