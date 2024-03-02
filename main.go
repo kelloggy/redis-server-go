@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"redis-server-go/aof"
 	"redis-server-go/handler"
 	"redis-server-go/resp"
 
@@ -18,6 +19,27 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+
+	Aof, err := aof.NewAof("database.aof")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer Aof.Close()
+
+	// read from file when restarting
+	Aof.Read(func(value resp.Value) {
+		command := strings.ToUpper(value.Array[0].Bulk)
+		args := value.Array[1:]
+
+		handler, ok := handler.Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			return
+		}
+
+		handler(args)
+	})
 
 	// Listen for connections
 	conn, err := l.Accept()
@@ -53,6 +75,11 @@ func main() {
 			fmt.Println("Invalid command: ", command)
 			writer.Write((resp.Value{Typ: "string", Str: ""}))
 			continue
+		}
+
+		// write to file
+		if command == "SET" || command == "HSET" {
+			Aof.Write(value)
 		}
 
 		// check the rest of the args
