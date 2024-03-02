@@ -124,7 +124,6 @@ func (r *Resp) readArray() (Value, error) {
 	if err != nil {
 		return v, err
 	}
-	fmt.Print(len)
 
 	// foreach line, parse and read the value
 	v.Array = make([]Value, 0)
@@ -182,9 +181,11 @@ func (v Value) marshalString() []byte {
 func (v Value) marshalBulk() []byte {
 	var bytes []byte
 	bytes = append(bytes, BULK)
+	bytes = append(bytes, strconv.Itoa(len(v.Bulk))...)
+	bytes = append(bytes, '\r', '\n')
 	bytes = append(bytes, v.Bulk...)
-	bytes = append(bytes, '\r')
-	bytes = append(bytes, '\n')
+	bytes = append(bytes, '\r', '\n')
+
 	return bytes
 }
 
